@@ -9,6 +9,8 @@
 
 package com.facebook.react.views.text;
 
+import javax.annotation.Nullable;
+
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.text.Layout;
@@ -48,10 +50,10 @@ public class ReactTextView extends TextView implements ReactCompoundView {
     }
     setText(update.getText());
     setPadding(
-      (int) Math.ceil(update.getPaddingLeft()),
-      (int) Math.ceil(update.getPaddingTop()),
-      (int) Math.ceil(update.getPaddingRight()),
-      (int) Math.ceil(update.getPaddingBottom()));
+      (int) Math.floor(update.getPaddingLeft()),
+      (int) Math.floor(update.getPaddingTop()),
+      (int) Math.floor(update.getPaddingRight()),
+      (int) Math.floor(update.getPaddingBottom()));
 
     float nextLineHeight = update.getLineHeight();
     if (!FloatUtil.floatsEqual(mLineHeight, nextLineHeight)) {
