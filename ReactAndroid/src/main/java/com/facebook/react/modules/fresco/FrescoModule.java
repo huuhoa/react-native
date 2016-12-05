@@ -18,6 +18,7 @@ import com.facebook.cache.common.CacheKey;
 import com.facebook.cache.disk.DiskCacheConfig;
 import com.facebook.common.internal.AndroidPredicates;
 import com.facebook.common.soloader.SoLoaderShim;
+import com.facebook.common.logging.FLog;
 import com.facebook.drawee.backends.pipeline.Fresco;
 import com.facebook.imagepipeline.backends.okhttp3.OkHttpImagePipelineConfigFactory;
 import com.facebook.imagepipeline.core.ImagePipelineConfig;
@@ -25,6 +26,7 @@ import com.facebook.imagepipeline.core.ImagePipelineFactory;
 import com.facebook.imagepipeline.listener.RequestListener;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
+import com.facebook.react.common.ReactConstants;
 import com.facebook.react.modules.common.ModuleDataCleaner;
 import com.facebook.react.modules.network.OkHttpClientProvider;
 import com.facebook.soloader.SoLoader;
@@ -40,6 +42,8 @@ public class FrescoModule extends ReactContextBaseJavaModule implements
     ModuleDataCleaner.Cleanable {
 
   private @Nullable ImagePipelineConfig mConfig;
+
+  public static boolean sHasBeenInitialized = false;
 
   public FrescoModule(ReactApplicationContext reactContext) {
     this(reactContext, getDefaultConfig(reactContext, null, null));
@@ -64,13 +68,26 @@ public class FrescoModule extends ReactContextBaseJavaModule implements
   @Override
   public void initialize() {
     super.initialize();
-    // Make sure the SoLoaderShim is configured to use our loader for native libraries.
-    // This code can be removed if using Fresco from Maven rather than from source
-    SoLoaderShim.setHandler(new FrescoHandler());
+    
 
-    Context context = getReactApplicationContext().getApplicationContext();
-    Fresco.initialize(context, mConfig);
-    mConfig = null;
+    if (!sHasBeenInitialized) {
+      // Make sure the SoLoaderShim is configured to use our loader for native libraries.
+      // This code can be removed if using Fresco from Maven rather than from source
+      SoLoaderShim.setHandler(new FrescoHandler());
+
+      if (mConfig == null) {
+        mConfig = getDefaultConfig(getReactApplicationContext());
+      }
+      Context context = getReactApplicationContext().getApplicationContext();
+      Fresco.initialize(context, mConfig);
+      sHasBeenInitialized = true;
+     } else if (mConfig != null) {
+       FLog.i(
+           ReactConstants.TAG,
+           "Fresco has already been initialized with a different config. "
+           + "The new Fresco configuration will be ignored!");
+     }
+     mConfig = null;
   }
 
   @Override
@@ -111,6 +128,17 @@ public class FrescoModule extends ReactContextBaseJavaModule implements
     }
 
     return builder.build();
+  }
+
+  private static ImagePipelineConfig getDefaultConfig(Context context) {
+    HashSet<RequestListener> requestListeners = new HashSet<>();
+    requestListeners.add(new SystraceRequestListener());
+
+    return OkHttpImagePipelineConfigFactory
+      .newBuilder(context.getApplicationContext(), OkHttpClientProvider.getOkHttpClient())
+      .setDownsampleEnabled(false)
+      .setRequestListeners(requestListeners)
+      .build();    
   }
 
   private static class FrescoHandler implements SoLoaderShim.Handler {
